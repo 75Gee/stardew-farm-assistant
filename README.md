@@ -6,6 +6,15 @@
 
 ---
 
+## 预览
+
+| 钓鱼小游戏 ROI（识别目标区域） | 演示视频 |
+| :---: | :--- |
+| ![钓鱼小游戏竖条：绿条与鱼图标](docs/preview.png) | **[控制系学生在星露谷全自动钓鱼](https://www.bilibili.com/video/BV1r2SfBfEiX)** |
+| 脚本截取的竖向槽：绿色矩形为有效区域，蓝鱼为追踪目标 | bilibili · [BV1r2SfBfEiX](https://www.bilibili.com/video/BV1r2SfBfEiX) |
+
+---
+
 ## 功能概览
 
 | 模块 | 说明 |
@@ -33,8 +42,8 @@
 ### 1. 克隆仓库并安装依赖
 
 ```bash
-git clone <你的仓库地址>
-cd 星露谷脚本
+git clone https://github.com/<your-username>/stardew-fishing-bot.git
+cd stardew-fishing-bot
 
 python -m pip install -r requirements.txt
 ```
@@ -267,7 +276,9 @@ python bar_system_id.py fit --input bar_id_data.npz
 ## 项目结构
 
 ```
-星露谷脚本/
+stardew-fishing-bot/
+├── docs/
+│   └── preview.png         # README 预览图
 ├── fishing_bot.py          # 主程序
 ├── roi_calibrator.py       # ROI 校准
 ├── template_mark_tool.py   # 鱼模板标注
@@ -310,7 +321,7 @@ A：代码未针对非 Windows 测试。`mss` 截屏与 `pynput` 输入在 Linux
 
 - 不要提交个人 `config.json` 中的屏幕坐标（可只改 `config.example.json`）
 - 不要提交 `config.backup_*.json`、`bar_id_data.npz` 等本地数据
-- 不要提交含游戏画面的截图或模板（可能涉及版权）
+- 除 `docs/preview.png` 外，不要提交个人调试截图或鱼模板（可能涉及版权）
 
 ---
 
