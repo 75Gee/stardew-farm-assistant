@@ -1,0 +1,92 @@
+{
+  "comment": "复制本文件为 config.json 后按 README 校准 ROI 与 HSV。fish_detect_mode 推荐 template（需自备鱼模板图）。",
+  "fish_detect_mode": "template",
+  "template_match": {
+    "fish_image": "templates/fish_template.png",
+    "method": "ccoeff_normed",
+    "min_score": 0.38,
+    "multi_scale": true,
+    "scale_min": 0.72,
+    "scale_max": 1.28,
+    "scale_steps": 7
+  },
+  "roi": {
+    "left": 0,
+    "top": 0,
+    "width": 80,
+    "height": 600,
+    "comment": "请用 roi_calibrator.py 校准，覆盖钓鱼小游戏左侧竖条（鱼图标 + 绿色矩形）"
+  },
+  "vision": {
+    "green_min_aspect_ratio": 2.6,
+    "green_max_width_ratio": 0.58,
+    "green_min_height_ratio": 0.12,
+    "green_min_extent": 0.42,
+    "green_min_solidity": 0.72,
+    "green_min_area_abs": 900,
+    "green_min_area_ratio": 0.008,
+    "fish_min_area": 18,
+    "fish_max_area_ratio": 0.07,
+    "fish_max_width_ratio": 0.55,
+    "fish_max_height_ratio": 0.3,
+    "fish_max_aspect_ratio": 4.0,
+    "fish_subtract_blue": 1,
+    "fish_loose_h_pad": 22,
+    "fish_loose_s_floor": 8,
+    "fish_loose_v_floor": 15,
+    "fish_pure_dilate": 7,
+    "texture_sal_percentile": 70,
+    "texture_sal_min": 8,
+    "texture_in_bar_factor": 1.38,
+    "texture_in_bar_min": 20,
+    "texture_bar_core_erode": 5,
+    "gradient_sal_percentile": 76,
+    "gradient_sal_min": 12,
+    "fish_score_use_compactness": 1,
+    "fish_reject_vertical_sliver_h": 0.26,
+    "fish_y_smooth_alpha": 0.45,
+    "fish_y_jump_max_px": 42,
+    "fish_y_output_up_offset_px": 20
+  },
+  "green_hsv": {
+    "low": [35, 80, 80],
+    "high": [95, 255, 255]
+  },
+  "fish_hsv": {
+    "low": [22, 10, 35],
+    "high": [95, 255, 255]
+  },
+  "control": {
+    "mode": "pd",
+    "comment_mode": "pd=经典 PD 控制；arx_k=基于系统辨识的 Ackermann 增益（需先运行 bar_system_id）",
+    "arx_k": [-0.007325, 0.006832, -1.051544],
+    "arx_u_prev_weight": 0,
+    "arx_v_scale": 18,
+    "arx_deadband_px": 0,
+    "kp": 0.04,
+    "kd": 0.18,
+    "deadband_px": 2,
+    "loop_hz": 60,
+    "smooth_alpha": 0.5,
+    "vel_smooth_alpha": 0.6,
+    "kff_fish_vel": 0.08,
+    "hysteresis_u": 0.08,
+    "min_switch_ms": 1,
+    "large_error_px": 55,
+    "large_error_boost": 1.5
+  },
+  "keys": {
+    "toggle_pause": "f8",
+    "quit": "f9",
+    "calibration_mode": "f7"
+  },
+  "debug_visual": {
+    "enabled": false,
+    "window_max_height": 520,
+    "calibrator_show_detection": true
+  },
+  "gui": {
+    "enabled": true,
+    "preview_max_width": 560
+  }
+}
