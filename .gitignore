@@ -1,24 +1,10 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-env/
-
-# 本地配置备份（辨识/拟合时自动生成）
-config.backup_*.json
-
-# 辨识实验数据（可本地保留，不必提交）
-bar_id_data.npz
-
-# 用户自定义模板与调试截图
-templates/*.png
-!templates/.gitkeep
-*.png
-!docs/**/*.png
-
-# IDE
+# .NET
+bin/
+obj/
+*.user
+.vs/
 .idea/
 .vscode/
-*.swp
+
+# 系统
+.DS_Store

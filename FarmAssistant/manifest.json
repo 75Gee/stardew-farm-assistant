@@ -1,0 +1,16 @@
+{
+  "Name": "Farm Assistant",
+  "Author": "Rengar-Yang",
+  "Version": "0.4.0",
+  "Description": "农场助手：右击自动浇水、播种、砍树并捡掉落物；含钓鱼助手（每刻替玩家决定按住或松开，可选自动上钩）。只模拟玩家操作，不修改游戏数据。",
+  "UniqueID": "RengarYang.FarmAssistant",
+  "EntryDll": "FarmAssistant.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": [],
+  "Dependencies": [
+    {
+      "UniqueID": "spacechase0.GenericModConfigMenu",
+      "IsRequired": false
+    }
+  ]
+}
