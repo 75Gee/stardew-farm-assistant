@@ -97,7 +97,7 @@ internal static class BobberBarPatch
                 TreasurePos: bar.treasurePosition,
                 TreasureLevel: bar.treasureCatchLevel);
             bool held = mod.Controller.Decide(obs);
-            mod.Rounds.Tick(obs);
+            mod.Rounds.Tick(obs, mod.Controller.Mode);
             return held;
         }
         catch (Exception ex)

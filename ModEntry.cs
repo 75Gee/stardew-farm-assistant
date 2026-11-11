@@ -67,8 +67,8 @@ public sealed class ModEntry : Mod
         if (gmcm == null)
             return;
         gmcm.Register(ModManifest,
-            reset: () => { Config = new ModConfig(); fishing.ApplyConfig(); },
-            save: () => { Helper.WriteConfig(Config); fishing.ApplyConfig(); });
+            reset: () => Config = new ModConfig(),
+            save: () => Helper.WriteConfig(Config));
 
         gmcm.AddKeybindList(ModManifest, () => Config.ToggleKey, v => Config.ToggleKey = v,
             () => "快捷键",
@@ -81,8 +81,6 @@ public sealed class ModEntry : Mod
             () => "砍完捡掉落物", () => "砍完后走到能把掉落物吸过来的地方；走不到吸附范围内的会跳过。");
 
         gmcm.AddSectionTitle(ModManifest, () => "钓鱼");
-        gmcm.AddBoolOption(ModManifest, () => Config.TreasurePriority, v => Config.TreasurePriority = v,
-            () => "宝箱优先", () => "进度够付整趟取箱时才去拿，拿时一口气拿完，可能因此失去完美；关闭则只在进度较高时顺手拿。");
         gmcm.AddBoolOption(ModManifest, () => Config.AutoHook, v => Config.AutoHook = v,
             () => "自动上钩", () => "鱼咬钩时自动提竿。");
     }

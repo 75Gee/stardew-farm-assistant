@@ -65,8 +65,11 @@ public static class Rules
         }
     }
 
-    /// <summary>Progress lost per tick while the fish is outside (trap bobber reduces it).</summary>
-    public static float ProgressLoss(in Tackle tackle, bool beginnersRod = false, float penaltyModifier = 1f)
+    /// <summary>
+    /// Progress lost per tick while the fish is outside (trap bobber reduces it).  The training
+    /// rod and the statue's blessing lose less; they are not counted, which errs on the safe side.
+    /// </summary>
+    public static float ProgressLoss(in Tackle tackle)
     {
         if (tackle.Trap > 0)
         {
@@ -77,9 +80,9 @@ public static class Rules
                 reduction -= amount;
                 amount /= 2f;
             }
-            return Math.Max(0.001f, reduction) * penaltyModifier;
+            return Math.Max(0.001f, reduction);
         }
-        return (beginnersRod ? 0.002f : 0.003f) * penaltyModifier;
+        return 0.003f;
     }
 
     /// <summary>The fish's commanded-speed divisor is <c>Next(10, 30) + KOffset</c>.</summary>

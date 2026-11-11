@@ -2,14 +2,14 @@ using System.Numerics;
 
 namespace FarmAssistant.Fishing.Core;
 
-public enum TreasureGoal
+public enum PlanMode
 {
-    /// <summary>No chest, or ignore it.</summary>
-    None,
-    /// <summary>Take it on the way: small reward, perfect still protected.</summary>
-    Opportunistic,
-    /// <summary>Treasure first: give up the perfect, but never the catch.</summary>
-    Priority,
+    /// <summary>No chest to take: keep the fish inside (and the perfect catch while it lasts).</summary>
+    Track,
+    /// <summary>Chest and perfect together: the chest only counts on plans that never let the fish out.</summary>
+    Both,
+    /// <summary>Chest first: give up the perfect, but never the catch.</summary>
+    ChestFirst,
 }
 
 /// <summary>
@@ -88,23 +88,37 @@ public sealed class Planner
     /// <summary>
     /// Best first button state.  <paramref name="fish"/>/<paramref name="band"/> hold the
     /// predicted fish position and band half-width for ticks 0..Horizon (0 = now).
+    ///
+    /// One roll-out serves the three modes; besides the bar it carries the chest's meter and,
+    /// for <see cref="PlanMode.ChestFirst"/>, the expected catch meter:
+    /// <list type="bullet">
+    /// <item>Track: fish inside, centred, and (while perfect) away from the zone edges.</item>
+    /// <item>Both: the same, plus a reward for every tick the chest is inside for as long as
+    /// the plan has not let the fish out.</item>
+    /// <item>ChestFirst: reward the chest inside and its meter filling, penalise plans that
+    /// let the catch meter run low (escape) or fill up before the chest is taken (the round
+    /// would end without it).  The perfect term is off.</item>
+    /// </list>
+    /// With the treasure hunter tackle the game takes nothing away (catch meter, perfect)
+    /// while the chest is inside the bar and not yet taken; the roll-out applies the same rule.
     /// </summary>
-    public bool Decide(in Observation o, float[] fish, float[] band, TreasureGoal goal)
+    public bool Decide(in Observation o, float[] fish, float[] band, PlanMode mode)
     {
-        if (goal == TreasureGoal.Priority)
-            return DecideTreasureFirst(o, fish, band);
         var s = settings;
-        float? treasure = goal == TreasureGoal.Opportunistic ? o.TreasurePos : null;
-        float treasureWeight = s.TreasureWeightNormal;
         int h = Horizon;
         int height = o.BarHeight;
         float halfBar = Math.Max(height / 2f, 1f);
-        bool perfect = o.Perfect;
+        var tackle = o.Tackle;
+        bool chestFirst = mode == PlanMode.ChestFirst;
+        bool chest = mode != PlanMode.Track;
+        bool hunter = tackle.TreasureHunter > 0;
+        float tp = o.TreasurePos;
+        float loss = Rules.ProgressLoss(tackle);
+        bool perfect = o.Perfect && !chestFirst;
         float distanceWeight = perfect ? s.PerfectDistanceWeight : s.DistanceWeight;
         float perfectWeight = perfect ? s.PerfectWeight : 0f;
         float logFloor = MathF.Log(s.PerfectFloor);
         float fishEndSpeed = fish[h] - fish[h - 1];
-        var tackle = o.Tackle;
 
         float best = float.MinValue;
         ulong bestMask = 0;
@@ -112,6 +126,8 @@ public sealed class Planner
         {
             ulong mask = sequences[n];
             float pos = o.BarPos, speed = o.BarSpeed, score = 0f;
+            float progress = o.Progress, level = o.TreasureLevel;
+            bool done = false, alive = true;
             bool inside = o.FishInBar;
             for (int k = 0; k < h; k++)
             {
@@ -125,110 +141,80 @@ public sealed class Planner
                 float sigma = Math.Max(band[k + 1], 0.5f);
                 float lo = Rules.ZoneTop(pos);
                 float hi = Rules.ZoneBottom(pos, height);
-                bool bottom = Rules.BottomRule(c1, pos, height);
-                float overlap = bottom ? 1f
-                    : Math.Clamp(Math.Min(hi, c1 + sigma) - Math.Max(lo, c1 - sigma), 0f, 2f * sigma) / (2f * sigma);
                 float mid = (lo + hi) / 2f;
-                float gain = overlap - distanceWeight * Math.Min(Math.Abs(mid - c1) / halfBar, 4f);
-                if (perfectWeight > 0f && !bottom)
-                {
-                    // log P(stays inside) ~ -0.077 (3 - m)^2 for a margin m < 3 in logistic
-                    // units; tracks log(sigmoid(m)) within ~0.3 on [-3, 3], no exp/log.
-                    float m = 1.702f * Math.Min(hi - c1, c1 - lo) / (sigma * s.PerfectSigmaScale);
-                    if (m < 3f)
-                        gain += perfectWeight * Math.Max(-0.077f * (3f - m) * (3f - m), logFloor);
-                }
-                if (treasure is float tp && tp >= lo && tp <= hi)
-                    gain += treasureWeight;
-                score += weights[k] * gain;
-            }
-            float endMid = pos + height / 2f - 30f;
-            score -= s.TerminalWeight * weights[h - 1] *
-                     (Math.Abs(endMid - fish[h]) / halfBar + Math.Abs(speed - fishEndSpeed) / 4f);
-            score -= s.SwitchCost * switches[n];
-            if (score > best)
-            {
-                best = score;
-                bestMask = mask;
-            }
-        }
-        return (bestMask & 1UL) != 0;
-    }
-
-    /// <summary>
-    /// Treasure first.  Besides the bar, the roll-out carries the chest's meter and the
-    /// expected catch meter forward: reward the chest inside the bar and its meter filling,
-    /// penalise plans that let the catch meter run low (escape) or fill up before the chest
-    /// is taken (the round would end without it).  The perfect term is off.
-    /// </summary>
-    private bool DecideTreasureFirst(in Observation o, float[] fish, float[] band)
-    {
-        var s = settings;
-        int h = Horizon;
-        int height = o.BarHeight;
-        float halfBar = Math.Max(height / 2f, 1f);
-        float tp = o.TreasurePos;
-        var tackle = o.Tackle;
-        float loss = Rules.ProgressLoss(tackle);
-        bool hunter = tackle.TreasureHunter > 0;
-
-        float best = float.MinValue;
-        ulong bestMask = 0;
-        for (int n = 0; n < sequences.Length; n++)
-        {
-            ulong mask = sequences[n];
-            float pos = o.BarPos, speed = o.BarSpeed, score = 0f;
-            float progress = o.Progress, level = o.TreasureLevel;
-            bool done = false;
-            bool inside = o.FishInBar;
-            for (int k = 0; k < h; k++)
-            {
-                float c = fish[k];
-                if (k > 0)
-                    inside = Rules.InBar(c, pos, height);
-                Rules.StepBar(ref pos, ref speed, ((mask >> k) & 1UL) != 0, inside, c, height, tackle);
-
-                float c1 = fish[k + 1];
-                float sigma = Math.Max(band[k + 1], 0.5f);
-                float lo = Rules.ZoneTop(pos);
-                float hi = Rules.ZoneBottom(pos, height);
                 bool bottom = Rules.BottomRule(c1, pos, height);
                 float overlap = bottom ? 1f
                     : Math.Clamp(Math.Min(hi, c1 + sigma) - Math.Max(lo, c1 - sigma), 0f, 2f * sigma) / (2f * sigma);
-                float gain = s.TreasureFishWeight * overlap;
 
-                bool chestIn = false;
-                if (!done)
+                // The chest's meter, as the game runs it.
+                bool chestIn = false, taken = false;
+                if (chest && !done)
                 {
                     chestIn = tp >= lo && tp <= hi;
                     level = chestIn ? level + 0.0135f : Math.Max(0f, level - 0.01f);
                     if (level >= 1f)
-                    {
-                        done = true;
+                        done = taken = true;
+                }
+                bool sheltered = hunter && chestIn && !done;
+                float gain;
+                if (chestFirst)
+                {
+                    // On the way to the chest the fish earns nothing: otherwise a far chest
+                    // never outweighs staying put, and the round ends without it.
+                    gain = chestIn || done ? s.TreasureFishWeight * overlap : 0f;
+                    if (taken)
                         gain += s.TreasureDoneBonus;
-                    }
                     else if (chestIn)
-                    {
                         gain += s.TreasureTickWeight;
-                    }
-                    else
+                    else if (!done)
+                        gain -= s.TreasureDistanceWeight * Math.Abs(mid - tp) / halfBar;   // no cap: keep a gradient when far
+                    // Expected catch meter: +0.002 inside, -loss outside.
+                    progress += overlap * 0.002f - (1f - overlap) * (sheltered ? 0f : loss);
+                    if (progress < s.SafeProgress)
+                        gain -= s.EscapePenalty * (s.SafeProgress - progress) / s.SafeProgress;
+                    if (!done && progress >= 1f)
+                        gain -= s.EarlyFinishPenalty;
+                }
+                else
+                {
+                    float held = sheltered ? 1f : overlap;
+                    gain = held - distanceWeight * Math.Min(Math.Abs(mid - c1) / halfBar, 4f);
+                    if (perfectWeight > 0f && !bottom && !sheltered)
                     {
-                        float zoneMid = (lo + hi) / 2f;
-                        gain -= s.TreasureDistanceWeight * Math.Abs(zoneMid - tp) / halfBar;   // no cap: keep a gradient when far
+                        // log P(stays inside) ~ -0.077 (3 - m)^2 for a margin m < 3 in logistic
+                        // units; tracks log(sigmoid(m)) within ~0.3 on [-3, 3], no exp/log.
+                        float m = 1.702f * Math.Min(hi - c1, c1 - lo) / (sigma * s.PerfectSigmaScale);
+                        if (m < 3f)
+                            gain += perfectWeight * Math.Max(-0.077f * (3f - m) * (3f - m), logFloor);
+                    }
+                    if (chest)
+                    {
+                        // Worth something only while this plan still has its perfect catch.
+                        if (held < s.BothAliveOverlap)
+                            alive = false;
+                        if (alive)
+                        {
+                            if (taken)
+                                gain += s.BothDoneBonus;
+                            else if (chestIn)
+                                gain += s.BothTickWeight * held;
+                        }
                     }
                 }
-                // Expected catch meter: +0.002 inside, -loss outside (none while the hunter's chest is in).
-                progress += overlap * 0.002f - (1f - overlap) * (chestIn && hunter ? 0f : loss);
-                if (progress < s.SafeProgress)
-                    gain -= s.EscapePenalty * (s.SafeProgress - progress) / s.SafeProgress;
-                if (!done && progress >= 1f)
-                    gain -= s.EarlyFinishPenalty;
                 score += weights[k] * gain;
             }
-            // Head for the chest while it is pending, otherwise back to the fish.
             float endMid = pos + height / 2f - 30f;
-            float target = done ? fish[h] : tp;
-            score -= s.TerminalWeight * weights[h - 1] * Math.Abs(endMid - target) / halfBar;
+            if (chestFirst)
+            {
+                // Head for the chest while it is pending, otherwise back to the fish.
+                float target = done ? fish[h] : tp;
+                score -= s.TerminalWeight * weights[h - 1] * Math.Abs(endMid - target) / halfBar;
+            }
+            else
+            {
+                score -= s.TerminalWeight * weights[h - 1] *
+                         (Math.Abs(endMid - fish[h]) / halfBar + Math.Abs(speed - fishEndSpeed) / 4f);
+            }
             score -= s.SwitchCost * switches[n];
             if (score > best)
             {

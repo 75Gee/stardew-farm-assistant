@@ -1,8 +1,8 @@
 namespace FarmAssistant.Fishing.Core;
 
 /// <summary>
-/// Planner tuning.  Fixed in the mod: only <see cref="TreasurePriority"/> is a player option;
-/// the other values were tuned offline against an exact replica of the minigame.
+/// Planner tuning.  Fixed in the mod (no player options); the values were tuned offline
+/// against an exact replica of the minigame.
 /// </summary>
 public sealed class ControllerSettings
 {
@@ -35,19 +35,20 @@ public sealed class ControllerSettings
     /// <summary>Band growth (px per tick at difficulty 100) for unforeseeable re-targeting.</summary>
     public float FishSigmaRate { get; set; } = 0.6f;
 
+    // Chest and perfect together (while the perfect catch is intact).
+    /// <summary>Reward per tick with the chest inside the bar on a plan that keeps the fish inside.</summary>
+    public float BothTickWeight { get; set; } = 0.3f;
+    /// <summary>One-off reward when the chest's meter would fill within such a plan.</summary>
+    public float BothDoneBonus { get; set; } = 5f;
+    /// <summary>Predicted share of the fish band inside the bar below which a plan counts as having lost the perfect.</summary>
+    public float BothAliveOverlap { get; set; } = 0.5f;
     /// <summary>
-    /// Infer where the fish is heading from how its visible speed changes.  Off: the fish
-    /// is only extrapolated at its current speed.
+    /// Stop trying for both when the perfect round would end within this many ticks of the
+    /// chest's meter filling at best; from then on the chest is taken without the perfect.
     /// </summary>
-    public bool InferTargetFromMotion { get; set; } = true;
+    public float BothMarginTicks { get; set; } = 40f;
 
-    /// <summary>
-    /// Treasure first: go for the chest as soon as it appears, even at the cost of a
-    /// perfect catch.  Off: only take it when the catch meter is comfortably full.
-    /// </summary>
-    public bool TreasurePriority { get; set; } = true;
-
-    // Treasure first: the perfect term is dropped while the chest is pending, and the
+    // Chest first: the perfect term is dropped while the chest is pending, and the
     // catch is protected by rolling the catch meter forward instead.
     /// <summary>Reward per tick with the chest inside the bar.</summary>
     public float TreasureTickWeight { get; set; } = 1.0f;
@@ -69,11 +70,10 @@ public sealed class ControllerSettings
     /// <summary>
     /// Commit to the chest only when the catch meter can pay for the whole trip: reach the
     /// chest, fill its meter, and get back to the fish, with the fish outside the bar all along
-    /// (scaled by BudgetScale) and SafeProgress left over.  Once committed, keep going until
+    /// and SafeProgress left over.  Once committed, keep going until
     /// the chest is taken; abort only below AbortProgress.  This stops the bar from shuttling
     /// between fish and chest while the chest meter drains.
     /// </summary>
-    public float TreasureBudgetScale { get; set; } = 1.0f;
     /// <summary>Bar travel time ≈ TravelCoef·√distance ticks (measured: ~250 px in ~45 ticks from rest).</summary>
     public float TreasureTravelCoef { get; set; } = 3f;
     /// <summary>Share of the chest-filling time the fish is assumed outside the bar.</summary>
@@ -84,8 +84,4 @@ public sealed class ControllerSettings
     public float TreasureAbortProgress { get; set; } = 0.06f;
     /// <summary>After an abort, the budget must be met with this much extra before committing again.</summary>
     public float TreasureRecommitMargin { get; set; } = 0.1f;
-
-    /// <summary>Treasure when not prioritised: taken only with a comfortable catch meter.</summary>
-    public float TreasureWeightNormal { get; set; } = 0.5f;
-    public float TreasureMinProgressNormal { get; set; } = 0.5f;
 }

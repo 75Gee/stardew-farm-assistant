@@ -44,14 +44,11 @@ internal sealed class FishingModule
     {
         Instance = this;
         this.mod = mod;
-        ApplyConfig();
         controller = new PerScreen<FishingController>(() => new FishingController(Settings));
         rounds = new PerScreen<RoundLog>(() => new RoundLog(mod.Monitor));
         Rod = new RodAssist(this);
         BobberBarPatch.Apply(harmony, mod.Monitor);
     }
-
-    public void ApplyConfig() => Settings.TreasurePriority = Config.TreasurePriority;
 
     /// <summary>开关切换时调用：下一轮从头开始预测。</summary>
     public void Reset() => Controller.Reset();

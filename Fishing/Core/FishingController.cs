@@ -11,7 +11,6 @@ public sealed class FishingController
     public FishingController(ControllerSettings? settings = null)
     {
         this.settings = settings ?? new ControllerSettings();
-        predictor.InferTarget = this.settings.InferTargetFromMotion;
         planner = new Planner(this.settings);
         int n = planner.Horizon + 1;
         fish = new float[n];
@@ -27,9 +26,13 @@ public sealed class FishingController
         predictor.Reset();
         committed = false;
         aborted = false;
+        Mode = PlanMode.Track;
     }
 
     private bool committed, aborted;
+
+    /// <summary>What the last decision was going for.</summary>
+    public PlanMode Mode { get; private set; }
 
 
     /// <summary>
@@ -46,7 +49,7 @@ public sealed class FishingController
         float back = TravelTicks(Math.Abs(o.TreasurePos - o.FishPos))
                      + s.TreasureReacquireTicks + s.TreasureReacquirePerDifficulty * Math.Clamp(o.Difficulty, 0f, 120f) / 100f;
         float outside = go + back + (o.Tackle.TreasureHunter > 0 ? 0f : s.TreasureFillOutside * fill);
-        return s.SafeProgress + s.TreasureBudgetScale * outside * Rules.ProgressLoss(o.Tackle);
+        return s.SafeProgress + outside * Rules.ProgressLoss(o.Tackle);
     }
 
     private float TravelTicks(float distance) => settings.TreasureTravelCoef * MathF.Sqrt(distance);
@@ -59,28 +62,48 @@ public sealed class FishingController
         for (int t = 1; t < band.Length; t++)
             band[t] += settings.FishSigma0 + rate * t;
 
-        TreasureGoal goal = TreasureGoal.None;
-        if (o.TreasureVisible && settings.TreasurePriority)
+        Mode = Select(o);
+        return planner.Decide(o, fish, band, Mode);
+    }
+
+    /// <summary>
+    /// What to go for this tick.  The catch always comes first, then the chest, then the
+    /// perfect catch: with a chest on screen and the perfect still intact, try for both for
+    /// as long as that can still work out; after that the chest alone, paid for out of the
+    /// catch meter.
+    /// </summary>
+    public PlanMode Select(in Observation o)
+    {
+        var s = settings;
+        if (!o.TreasureVisible)
         {
-            // The catch comes first: commit only when the meter pays for the whole trip, then
-            // see it through instead of turning back half way (the chest meter drains when left).
-            if (committed && o.Progress < settings.TreasureAbortProgress)
-            {
-                committed = false;
-                aborted = true;
-            }
-            else if (!committed)
-            {
-                float need = TreasureBudget(o) + (aborted ? settings.TreasureRecommitMargin : 0f);
-                if (o.Progress >= need)
-                    committed = true;
-            }
-            goal = committed ? TreasureGoal.Priority : TreasureGoal.None;
+            committed = false;
+            return PlanMode.Track;
         }
-        else if (o.TreasureVisible && o.Progress >= settings.TreasureMinProgressNormal)
+        if (o.Perfect && !committed)
         {
-            goal = TreasureGoal.Opportunistic;
+            // A perfect round gains 0.002 per tick, so it ends in exactly this many ticks.
+            // The chest needs the rest of its meter in ticks inside the bar, and with the fish
+            // inside as well the round keeps running out meanwhile.  Once that no longer fits
+            // (plus a margin to get away from the fish), the chest is taken without the perfect.
+            float left = (1f - o.Progress) / 0.002f;
+            float need = Math.Max(0f, 1f - o.TreasureLevel) / 0.0135f;
+            if (left >= need + s.BothMarginTicks)
+                return PlanMode.Both;
         }
-        return planner.Decide(o, fish, band, goal);
+        // Commit only when the meter pays for the whole trip, then see it through instead of
+        // turning back half way (the chest meter drains when left).
+        if (committed && o.Progress < s.TreasureAbortProgress)
+        {
+            committed = false;
+            aborted = true;
+        }
+        else if (!committed)
+        {
+            float budget = TreasureBudget(o) + (aborted ? s.TreasureRecommitMargin : 0f);
+            if (o.Progress >= budget)
+                committed = true;
+        }
+        return committed ? PlanMode.ChestFirst : PlanMode.Track;
     }
 }

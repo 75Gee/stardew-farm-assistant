@@ -25,28 +25,20 @@ public sealed class FishPredictor
     private float prevPos;
     private float prevSpeed;
 
-    public bool InferTarget { get; set; } = true;
-
-
-    /// <summary>Ticks since the current candidate set was formed (0 when none).</summary>
-    public int Locked { get; private set; }
-
     public void Reset()
     {
         candidates.Clear();
         hasPrev = false;
-        Locked = 0;
     }
 
     public void Observe(float pos, float speed, float difficulty)
     {
-        if (hasPrev && InferTarget)
+        if (hasPrev)
         {
             if (speed == prevSpeed)
             {
                 // No acceleration this tick: the fish reached its target or has none.
                 candidates.Clear();
-                Locked = 0;
             }
             else
             {
@@ -68,19 +60,9 @@ public sealed class FishPredictor
                         if (Near(candidates, scratch[i]))
                             scratch[kept++] = scratch[i];
                     }
+                    // Nothing fits: a new target was chosen, so start over from this tick's set.
                     if (kept > 0)
-                    {
                         scratch.RemoveRange(kept, scratch.Count - kept);
-                        Locked++;
-                    }
-                    else
-                    {
-                        Locked = 1;        // nothing fits: a new target was chosen
-                    }
-                }
-                else
-                {
-                    Locked = 1;
                 }
                 candidates.Clear();
                 candidates.AddRange(scratch);

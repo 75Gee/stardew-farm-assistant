@@ -8,3 +8,5 @@ obj/
 
 # 系统
 .DS_Store
+bin/
+obj/

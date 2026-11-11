@@ -22,9 +22,6 @@ public sealed class ModConfig
 
     // ---------- 钓鱼 ----------
 
-    /// <summary>宝箱优先：进度够付整趟取箱才去拿，拿时一口气拿完（可能因此失去完美）；关闭则只在进度较高时顺手拿。</summary>
-    public bool TreasurePriority { get; set; } = true;
-
     /// <summary>自动上钩：鱼咬钩时自动提竿。</summary>
     public bool AutoHook { get; set; } = false;
 }
